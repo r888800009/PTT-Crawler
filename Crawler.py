@@ -91,70 +91,65 @@ class PttCrawler:
         raw  = self.session.get(url, verify=False)
         soup = BeautifulSoup(raw.text, "lxml")
 
-        try:
-            article = {}
+        article = {}
 
-            # 取得文章作者與文章標題
-            article["Author"] = soup.select(".article-meta-value")[0].contents[0].split(" ")[0]
-            article["Title"]  = soup.select(".article-meta-value")[2].contents[0]
+        # 取得文章作者與文章標題
+        article["Author"] = soup.select(".article-meta-value")[0].contents[0].split(" ")[0]
+        article["Title"]  = soup.select(".article-meta-value")[2].contents[0]
 
-            # 取得內文
-            content = ""
-            for tag in soup.select("#main-content")[0]:
-                if type(tag) is NavigableString and tag !='\n':
-                    content += tag
-                    break
-            article["Content"] = content
+        # 取得內文
+        content = ""
+        for tag in soup.select("#main-content")[0]:
+            if type(tag) is NavigableString and tag !='\n':
+                content += tag
+                break
+        article["Content"] = content
 
-            # 處理回文資訊
-            upvote = 0
-            downvote = 0
-            novote = 0
-            response_list = []
+        # 處理回文資訊
+        upvote = 0
+        downvote = 0
+        novote = 0
+        response_list = []
 
-            for response_struct in soup.select(".push"):
+        for response_struct in soup.select(".push"):
 
-                #跳脫「檔案過大！部分文章無法顯示」的 push class
-                if "warning-box" not in response_struct['class']:
+            #跳脫「檔案過大！部分文章無法顯示」的 push class
+            if "warning-box" not in response_struct['class']:
 
-                    response_dic = {}
+                response_dic = {}
+                
+                # 根據不同的mode去採集response
+                if mode == 'all':
+                    response_dic["Content"] = response_struct.select(".push-content")[0].contents[0][1:]
+                    response_dic["Vote"]  = response_struct.select(".push-tag")[0].contents[0][0]
+                    response_dic["User"]  = response_struct.select(".push-userid")[0].contents[0]
+                    response_list.append(response_dic)
                     
-                    # 根據不同的mode去採集response
-                    if mode == 'all':
-                        response_dic["Content"] = response_struct.select(".push-content")[0].contents[0][1:]
-                        response_dic["Vote"]  = response_struct.select(".push-tag")[0].contents[0][0]
-                        response_dic["User"]  = response_struct.select(".push-userid")[0].contents[0]
+                    if response_dic["Vote"] == u"推":
+                        upvote += 1
+                    elif response_dic["Vote"] == u"噓":
+                        downvote += 1
+                    else:
+                        novote += 1
+                else:
+                    response_dic["Content"] = response_struct.select(".push-content")[0].contents[0][1:]
+                    response_dic["Vote"]  = response_struct.select(".push-tag")[0].contents[0][0]
+                    response_dic["User"]  = response_struct.select(".push-userid")[0].contents[0]
+
+                    if response_dic["Vote"] == mode:
                         response_list.append(response_dic)
                         
-                        if response_dic["Vote"] == u"推":
+                        if mode == u"推":
                             upvote += 1
-                        elif response_dic["Vote"] == u"噓":
+                        elif mode == u"噓":
                             downvote += 1
                         else:
                             novote += 1
-                    else:
-                        response_dic["Content"] = response_struct.select(".push-content")[0].contents[0][1:]
-                        response_dic["Vote"]  = response_struct.select(".push-tag")[0].contents[0][0]
-                        response_dic["User"]  = response_struct.select(".push-userid")[0].contents[0]
 
-                        if response_dic["Vote"] == mode:
-                            response_list.append(response_dic)
-                            
-                            if mode == u"推":
-                                upvote += 1
-                            elif mode == u"噓":
-                                downvote += 1
-                            else:
-                                novote += 1
-
-            article["Responses"] = response_list
-            article["UpVote"] = upvote
-            article["DownVote"] = downvote
-            article["NoVote"] = novote
-
-        except Exception as e:
-            print(e)
-            print(u"在分析 %s 時出現錯誤" % url)
+        article["Responses"] = response_list
+        article["UpVote"] = upvote
+        article["DownVote"] = downvote
+        article["NoVote"] = novote
 
         return article
 
@@ -164,14 +159,11 @@ class PttCrawler:
             filename: json檔的文件路徑
             data: 爬取完的資料
         '''
-        
-        try:
-            with open(filename+".json", 'wb+') as op:
-                op.write(json.dumps(data, indent=4, ensure_ascii=False).encode('utf-8'))
-                print('爬取完成~', filename + '.json', '輸出成功！')
-        except Exception as err:
-            print(filename + '.json', '輸出失敗 :(')
-            print('error message:', err)
+
+        with open(filename+".json", 'wb+') as op:
+            op.write(json.dumps(data, indent=4, ensure_ascii=False).encode('utf-8'))
+            print('爬取完成~', filename + '.json', '輸出成功！')
+
         
     def crawl(self, board="Gossiping", mode='all', start=1, end=2, sleep_time=0.5):
         '''爬取資料主要接口
