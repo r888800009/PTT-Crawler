@@ -124,8 +124,8 @@ class PttCrawler:
             response_dic = {}
             
             # 根據不同的mode去採集response
-            if mode == 'all':
-                self.parse_response(response_struct, response_dic)
+            self.parse_response(response_struct, response_dic)
+            if mode == 'all' or response_dic["Vote"] == mode:
                 response_list.append(response_dic)
                 
                 if response_dic["Vote"] == u"推":
@@ -134,18 +134,6 @@ class PttCrawler:
                     downvote += 1
                 else:
                     novote += 1
-            else:
-                response_dic = self.parse_response(response_struct, response_dic)
-
-                if response_dic["Vote"] == mode:
-                    response_list.append(response_dic)
-                    
-                    if mode == u"推":
-                        upvote += 1
-                    elif mode == u"噓":
-                        downvote += 1
-                    else:
-                        novote += 1
 
         article["Responses"] = response_list
         article["UpVote"] = upvote
@@ -283,9 +271,9 @@ def test_parse_article():
     
     test_mode = [
         'all', 
-        #'up',
-        #'down',
-        #'normal',
+        'up',
+        'down',
+        'normal',
     ]
 
     for article in article_list:
