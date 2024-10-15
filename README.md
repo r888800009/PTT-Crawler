@@ -2,6 +2,15 @@
 
 一個練習網路爬蟲的小實驗，可以取出 PTT 文章中標題、內容與推文。
 
+本專案為 [zake7749/PTT-Crawler](https://github.com/zake7749/PTT-Crawler) 的 fork，本 fork feature 如下:
+- `parse_article()` 移除 try-catch block ，這使佇列系統(rq/celery)可以收集崩潰日誌、重新排程
+- (WIP) 增加 pttweb 爬蟲，由於 ptt 討埨板有文章上限，未標記的文章會被移除，可透過鏡像站爬取備份
+- [jwlin/ptt-web-crawler](https://github.com/jwlin/ptt-web-crawler) 會自行前處理移除換行資訊，如果需要這些資訊可能無法重新構造，
+對於 ETL pipeline 較不友善。
+
+## 已知 bug
+- 目前文章只會爬取第一行文字的部分，可能造成爬取的資料不完整
+
 ## 使用方式
 
 ### 批量爬取
