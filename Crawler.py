@@ -75,7 +75,12 @@ class PttCrawler:
             article: 爬取文章後資料的dict
             
         '''
+        raw  = self.session.get(url, verify=False)
+        return self.parse_article_no_request(raw.text, mode)
         
+    def parse_article_no_request(self, text, mode):
+        '''同 parse_article，但是這個函數不主動從網頁爬取資料，直接傳入爬取的文字
+        '''
         # 處理mode標誌
         if mode == 'all':
             mode = 'all'
@@ -88,22 +93,15 @@ class PttCrawler:
         else:
             raise ValueError("mode變數錯誤", mode)
 
-        raw  = self.session.get(url, verify=False)
-        soup = BeautifulSoup(raw.text, "lxml")
+        soup = BeautifulSoup(text, "lxml")
 
         article = {}
 
         # 取得文章作者與文章標題
-        article["Author"] = soup.select(".article-meta-value")[0].contents[0].split(" ")[0]
-        article["Title"]  = soup.select(".article-meta-value")[2].contents[0]
+        self.get_title_and_author(soup, article)
 
         # 取得內文
-        content = ""
-        for tag in soup.select("#main-content")[0]:
-            if type(tag) is NavigableString and tag !='\n':
-                content += tag
-                break
-        article["Content"] = content
+        self.get_content(soup, article)
 
         # 處理回文資訊
         upvote = 0
@@ -111,7 +109,8 @@ class PttCrawler:
         novote = 0
         response_list = []
 
-        for response_struct in soup.select(".push"):
+        push_list = soup.select(".push")
+        for response_struct in push_list:
 
             #跳脫「檔案過大！部分文章無法顯示」的 push class
             if "warning-box" not in response_struct['class']:
@@ -120,9 +119,7 @@ class PttCrawler:
                 
                 # 根據不同的mode去採集response
                 if mode == 'all':
-                    response_dic["Content"] = response_struct.select(".push-content")[0].contents[0][1:]
-                    response_dic["Vote"]  = response_struct.select(".push-tag")[0].contents[0][0]
-                    response_dic["User"]  = response_struct.select(".push-userid")[0].contents[0]
+                    self.parse_response(response_struct, response_dic)
                     response_list.append(response_dic)
                     
                     if response_dic["Vote"] == u"推":
@@ -132,9 +129,7 @@ class PttCrawler:
                     else:
                         novote += 1
                 else:
-                    response_dic["Content"] = response_struct.select(".push-content")[0].contents[0][1:]
-                    response_dic["Vote"]  = response_struct.select(".push-tag")[0].contents[0][0]
-                    response_dic["User"]  = response_struct.select(".push-userid")[0].contents[0]
+                    response_dic = self.parse_response(response_struct, response_dic)
 
                     if response_dic["Vote"] == mode:
                         response_list.append(response_dic)
@@ -152,6 +147,25 @@ class PttCrawler:
         article["NoVote"] = novote
 
         return article
+
+    def get_content(self, soup, article):
+        content = ""
+        for tag in soup.select("#main-content")[0]:
+            if type(tag) is NavigableString and tag !='\n':
+                content += tag
+                break
+        article["Content"] = content
+
+    def get_title_and_author(self, soup, article):
+        article["Author"] = soup.select(".article-meta-value")[0].contents[0].split(" ")[0]
+        article["Title"]  = soup.select(".article-meta-value")[2].contents[0]
+
+    def parse_response(self, response_struct, response_dic):
+        """response_dic 回傳內容
+        """
+        response_dic["Content"] = response_struct.select(".push-content")[0].contents[0][1:]
+        response_dic["Vote"]  = response_struct.select(".push-tag")[0].contents[0][0]
+        response_dic["User"]  = response_struct.select(".push-userid")[0].contents[0]
 
     def output(self, filename, data):
         '''爬取完的資料寫到json文件
